@@ -217,3 +217,132 @@ func (e *ExaClient) ValidateTechnologyChoice(technology string, useCase string, 
 	query := fmt.Sprintf("%s for %s at scale %s pros cons", technology, useCase, scale)
 	return e.Search(query, 10)
 }
+
+// GetContents fetches full text from known URLs
+func (e *ExaClient) GetContents(urls []string, maxCharacters int) ([]ContentResult, error) {
+	req := ContentsRequest{
+		URLs: urls,
+		Text: &TextConfig{
+			MaxCharacters: maxCharacters,
+		},
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", e.baseURL+"/contents", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", e.apiKey)
+
+	resp, err := e.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("Exa contents error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var contentsResp ContentsResponse
+	if err := json.Unmarshal(body, &contentsResp); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return contentsResp.Results, nil
+}
+
+// AnswerQuestion performs Q&A with web citations
+func (e *ExaClient) AnswerQuestion(question string, numResults int) (*AnswerResult, error) {
+	req := AnswerRequest{
+		Query:      question,
+		NumResults: numResults,
+	}
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", e.baseURL+"/answer", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", e.apiKey)
+
+	resp, err := e.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("Exa answer error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var answerResp AnswerResponse
+	if err := json.Unmarshal(body, &answerResp); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &answerResp.Answer, nil
+}
+
+// ContentsRequest for /contents endpoint
+type ContentsRequest struct {
+	URLs  []string      `json:"urls"`
+	Text  *TextConfig   `json:"text,omitempty"`
+}
+
+// ContentsResponse matches /contents response
+type ContentsResponse struct {
+	Results []ContentResult `json:"results"`
+}
+
+// ContentResult represents extracted content from a URL
+type ContentResult struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
+// AnswerRequest for /answer endpoint
+type AnswerRequest struct {
+	Query      string `json:"query"`
+	NumResults int    `json:"num_results,omitempty"`
+}
+
+// AnswerResponse matches /answer response
+type AnswerResponse struct {
+	Answer AnswerResult `json:"answer"`
+}
+
+// AnswerResult contains Q&A with citations
+type AnswerResult struct {
+	Answer    string   `json:"answer"`
+	Sources   []Source `json:"sources"`
+}
+
+// Source represents a citation source
+type Source struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+}
