@@ -47,8 +47,16 @@ Deployment: Cloudflare Pages (static) + API calls to Go backend
 
 ### External Services
 ```
-AI Provider: NEAR AI Cloud (primary)
-Image Generation: Nano Banana Pro API (Mermaid → PNG/PDF)
+AI Provider: NEAR AI Cloud (OpenAI-compatible API, TEE-secured)
+  - Endpoint: https://api.near.ai/v1
+  - Models: deepseek-ai/DeepSeek-V3.1 (and others)
+  - Auth: Bearer token from cloud.near.ai
+  
+Image Generation: Mermaid.ink (free, no API key needed)
+  - URL: https://mermaid.ink/img/{base64_mermaid_code}
+  - Formats: PNG, PDF, SVG
+  - Alternative: Puppeteer self-hosted fallback
+  
 Pricing Data: AWS/Azure/GCP pricing APIs (cached hourly)
 Rate Limiting: IP-based (1 free/day, +1 for signup, paid tiers)
 ```
@@ -316,43 +324,107 @@ func CheckRateLimit(next http.Handler) http.Handler {
 
 ---
 
-## AI Integration (NEAR AI Cloud)
+## AI Integration (NEAR AI Cloud - OpenAI Compatible)
+
+**API Details:**
+- Base URL: `https://api.near.ai/v1`
+- Auth: `Authorization: Bearer <token>` (from cloud.near.ai)
+- Models: `deepseek-ai/DeepSeek-V3.1` (default), others available
+- Compatibility: OpenAI SDK works out-of-the-box
 
 ```go
 type NEARAIProvider struct {
     APIKey     string
-    Endpoint   string
-    Model      string // e.g., "near-chat-v1"
+    BaseURL    string // https://api.near.ai/v1
+    Model      string // deepseek-ai/DeepSeek-V3.1
     Timeout    time.Duration
+    httpClient *http.Client
 }
 
-func (n *NEARAIProvider) Chat(req ChatRequest) (*ChatResponse, error) {
+func NewNEARAIProvider(apiKey string) *NEARAIProvider {
+    return &NEARAIProvider{
+        APIKey:  apiKey,
+        BaseURL: "https://api.near.ai/v1",
+        Model:   "deepseek-ai/DeepSeek-V3.1",
+        Timeout: 30 * time.Second,
+        httpClient: &http.Client{
+            Timeout: 30 * time.Second,
+        },
+    }
+}
+
+// OpenAI-compatible request/response structures
+type ChatCompletionRequest struct {
+    Model       string    `json:"model"`
+    Messages    []Message `json:"messages"`
+    Temperature float64   `json:"temperature,omitempty"`
+    MaxTokens   int       `json:"max_tokens,omitempty"`
+}
+
+type Message struct {
+    Role    string `json:"role"` // "system", "user", "assistant"
+    Content string `json:"content"`
+}
+
+type ChatCompletionResponse struct {
+    ID      string `json:"id"`
+    Choices []struct {
+        Index        int     `json:"index"`
+        Message      Message `json:"message"`
+        FinishReason string  `json:"finish_reason"`
+    } `json:"choices"`
+    Usage struct {
+        PromptTokens     int `json:"prompt_tokens"`
+        CompletionTokens int `json:"completion_tokens"`
+        TotalTokens      int `json:"total_tokens"`
+    } `json:"usage"`
+}
+
+func (n *NEARAIProvider) Chat(ctx context.Context, systemPrompt, userMessage string) (string, error) {
     // Check cache first
-    hash := sha256.Sum256(json.Marshal(req.Requirements))
-    if cached, ok := redis.Get("ai:" + hex.EncodeToString(hash[:])); ok {
+    cacheKey := "ai:" + sha256sum(systemPrompt+userMessage)
+    if cached, ok := redis.Get(ctx, cacheKey); ok {
         return cached, nil
     }
     
-    // Call NEAR AI Cloud API
-    resp, err := http.Post(n.Endpoint, "application/json", 
-        bytes.NewBufferJSON(ChatRequest{
-            Model: n.Model,
-            Messages: []Message{
-                {Role: "system", Content: SystemPrompt},
-                {Role: "user", Content: req.Message},
-            },
-            Temperature: 0.7,
-            MaxTokens: 2000,
-        }))
-    
-    if err != nil {
-        return nil, fmt.Errorf("NEAR AI Cloud error: %w", err)
+    req := ChatCompletionRequest{
+        Model: n.Model,
+        Messages: []Message{
+            {Role: "system", Content: systemPrompt},
+            {Role: "user", Content: userMessage},
+        },
+        Temperature: 0.7,
+        MaxTokens:   2000,
     }
     
-    // Cache response
-    redis.Set("ai:"+hex.EncodeToString(hash[:]), resp, 24*time.Hour)
+    reqBody, _ := json.Marshal(req)
+    httpReq, _ := http.NewRequestWithContext(ctx, "POST", 
+        n.BaseURL+"/chat/completions", bytes.NewReader(reqBody))
     
-    return resp, nil
+    httpReq.Header.Set("Content-Type", "application/json")
+    httpReq.Header.Set("Authorization", "Bearer "+n.APIKey)
+    
+    resp, err := n.httpClient.Do(httpReq)
+    if err != nil {
+        return "", fmt.Errorf("NEAR AI Cloud error: %w", err)
+    }
+    defer resp.Body.Close()
+    
+    var completion ChatCompletionResponse
+    if err := json.NewDecoder(resp.Body).Decode(&completion); err != nil {
+        return "", fmt.Errorf("decode error: %w", err)
+    }
+    
+    if len(completion.Choices) == 0 {
+        return "", fmt.Errorf("no choices in response")
+    }
+    
+    answer := completion.Choices[0].Message.Content
+    
+    // Cache for 24 hours
+    redis.Set(ctx, cacheKey, answer, 24*time.Hour)
+    
+    return answer, nil
 }
 
 var SystemPrompt = `You are an expert system architect specializing in large-scale distributed systems.
@@ -375,34 +447,69 @@ Always state:
 
 ---
 
-## Image Generation (Nano Banana Pro API)
+## Image Generation (Mermaid.ink - Free, No API Key)
+
+**Service:** https://mermaid.ink  
+**Usage:** `GET https://mermaid.ink/img/{base64_encoded_mermaid}`  
+**Formats:** PNG (default), PDF (`/pdf/`), SVG (`/svg/`)
 
 ```go
-type NanoBananaProProvider struct {
-    APIKey   string
-    Endpoint string // e.g., "https://api.nanobanana.pro/v1/render"
+type MermaidRenderer struct {
+    BaseURL string // https://mermaid.ink
+    client  *http.Client
 }
 
-func (n *NanoBananaProProvider) RenderMermaid(mermaidCode string) ([]byte, error) {
-    resp, err := http.Post(n.Endpoint, "application/json",
-        bytes.NewBufferJSON(map[string]interface{}{
-            "input": mermaidCode,
-            "format": "png", // or "pdf"
-            "width": 1920,
-            "height": 1080,
-            "theme": "default",
-        }))
+func NewMermaidRenderer() *MermaidRenderer {
+    return &MermaidRenderer{
+        BaseURL: "https://mermaid.ink",
+        client:  &http.Client{Timeout: 30 * time.Second},
+    }
+}
+
+// RenderPNG converts Mermaid code to PNG bytes
+func (m *MermaidRenderer) RenderPNG(mermaidCode string) ([]byte, error) {
+    // Encode mermaid code as base64
+    encoded := base64.StdEncoding.EncodeToString([]byte(mermaidCode))
     
+    // URL format: https://mermaid.ink/img/{base64_code}
+    url := fmt.Sprintf("%s/img/%s", m.BaseURL, encoded)
+    
+    resp, err := m.client.Get(url)
     if err != nil {
-        return nil, fmt.Errorf("Nano Banana Pro API error: %w", err)
+        return nil, fmt.Errorf("mermaid.ink error: %w", err)
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != http.StatusOK {
+        return nil, fmt.Errorf("render failed with status %d", resp.StatusCode)
     }
     
-    // Return PNG bytes
+    return io.ReadAll(resp.Body)
+}
+
+// RenderPDF converts Mermaid code to PDF bytes
+func (m *MermaidRenderer) RenderPDF(mermaidCode string) ([]byte, error) {
+    encoded := base64.StdEncoding.EncodeToString([]byte(mermaidCode))
+    url := fmt.Sprintf("%s/pdf/%s", m.BaseURL, encoded)
+    
+    resp, err := m.client.Get(url)
+    if err != nil {
+        return nil, fmt.Errorf("mermaid.ink PDF error: %w", err)
+    }
+    defer resp.Body.Close()
+    
     return io.ReadAll(resp.Body)
 }
 ```
 
-*Note: Actual API docs needed - this is a placeholder interface*
+**Fallback:** If mermaid.ink is down, use Puppeteer locally:
+```go
+// Fallback implementation using chromedp
+func RenderWithPuppeteer(mermaidCode string) ([]byte, error) {
+    // Launch headless Chrome, render Mermaid, screenshot
+    // Implementation in diagram/renderer_fallback.go
+}
+```
 
 ---
 
