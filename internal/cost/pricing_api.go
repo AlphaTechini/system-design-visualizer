@@ -350,3 +350,99 @@ func joinWithAnd(parts []string) string {
 	}
 	return result
 }
+
+// GetRDSPricing fetches AWS RDS pricing (stub - uses static pricing for MVP)
+func (a *AWSPricingClient) GetRDSPricing(ctx context.Context, region string, engine string, instanceType string) (*DatabasePricing, error) {
+	// TODO: Integrate with AWS Price List API
+	// For now, return static pricing
+	basePrices := map[string]float64{
+		"db.t3.micro":  0.017,
+		"db.t3.small":  0.034,
+		"db.m5.large":  0.171,
+	}
+	
+	hourlyRate, exists := basePrices[instanceType]
+	if !exists {
+		hourlyRate = 0.1
+	}
+	
+	engineMultiplier := 1.0
+	if engine == "oracle-ee" || engine == "sqlserver-ee" {
+		engineMultiplier = 3.0
+	}
+	
+	monthlyCost := hourlyRate * engineMultiplier * 24 * 30
+	
+	return &DatabasePricing{
+		InstanceType: instanceType,
+		Engine:       engine,
+		MonthlyCost:  monthlyCost,
+		BackupCost:   monthlyCost * 0.2,
+		Provider:     "aws",
+	}, nil
+}
+
+// GetElastiCachePricing fetches AWS ElastiCache pricing (stub)
+func (a *AWSPricingClient) GetElastiCachePricing(ctx context.Context, region string, nodeType string) (*DatabasePricing, error) {
+	basePrices := map[string]float64{
+		"cache.t3.micro": 0.017,
+		"cache.t3.small": 0.034,
+		"cache.m5.large": 0.166,
+	}
+	
+	hourlyRate, exists := basePrices[nodeType]
+	if !exists {
+		hourlyRate = 0.1
+	}
+	
+	monthlyCost := hourlyRate * 24 * 30
+	
+	return &DatabasePricing{
+		InstanceType: nodeType,
+		Engine:       "redis",
+		MonthlyCost:  monthlyCost,
+		Provider:     "aws",
+	}, nil
+}
+
+// CalculateDataTransferCost calculates AWS data transfer costs (stub)
+func (a *AWSPricingClient) CalculateDataTransferCost(ctx context.Context, provider CloudProvider, region string, transferOutGB float64, crossAZ bool) (*NetworkPricing, error) {
+	costPerGB := 0.09
+	if crossAZ {
+		costPerGB = 0.01
+	}
+	
+	return &NetworkPricing{
+		DataTransferOutGB: transferOutGB,
+		CostPerGB:         costPerGB,
+		TotalCost:         transferOutGB * costPerGB,
+		CrossAZ:           crossAZ,
+		Provider:          "aws",
+	}, nil
+}
+
+// GetS3Pricing calculates AWS S3 storage costs (stub)
+func (a *AWSPricingClient) GetS3Pricing(ctx context.Context, region string, storageGB float64, requests int64) (float64, error) {
+	storageCost := storageGB * 0.023 // $0.023/GB for first 50TB
+	requestCost := float64(requests) / 1000.0 * 0.005 // $0.005 per 1K requests
+	
+	return storageCost + requestCost, nil
+}
+
+// DatabasePricing represents managed database costs
+type DatabasePricing struct {
+	InstanceType string  `json:"instance_type"`
+	Engine       string  `json:"engine"`
+	MonthlyCost  float64 `json:"monthly_cost"`
+	BackupCost   float64 `json:"backup_cost"`
+	Provider     string  `json:"provider"`
+}
+
+// NetworkPricing represents data transfer costs
+type NetworkPricing struct {
+	DataTransferOutGB float64 `json:"data_transfer_out_gb"`
+	CostPerGB         float64 `json:"cost_per_gb"`
+	TotalCost         float64 `json:"total_cost"`
+	CrossAZ           bool    `json:"cross_az"`
+	Provider          string  `json:"provider"`
+}

@@ -1,4 +1,5 @@
 package ai
+import "fmt"
 
 // SystemPromptArchitect is the main system prompt for architecture advice
 const SystemPromptArchitect = `You are an expert system architect specializing in large-scale distributed systems.

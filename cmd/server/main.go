@@ -11,8 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AlphaTechini/system-design-visualizer/internal/api"
 	"github.com/AlphaTechini/system-design-visualizer/internal/database"
 	"github.com/AlphaTechini/system-design-visualizer/internal/ratelimit"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -51,6 +53,13 @@ func main() {
 	// Initialize rate limiting middleware
 	rateLimitMW := ratelimit.NewRateLimitMiddleware(db)
 
+	// Initialize NEAR AI and GCP API keys
+	nearAPIKey := getEnv("NEAR_AI_API_KEY", "")
+	gcpAPIKey := getEnv("GCP_API_KEY", "")
+
+	// Initialize design handler with all dependencies
+	designHandler := api.NewDesignHandler(db, nearAPIKey, gcpAPIKey)
+
 	// Setup HTTP router
 	r := mux.NewRouter()
 
@@ -64,9 +73,12 @@ func main() {
 	// Rate limit status endpoint
 	api.HandleFunc("/rate-limit", getRateLimitHandler(rateLimitMW)).Methods("GET")
 
-	// Placeholder for future endpoints
-	api.HandleFunc("/designs", createDesignHandler(db)).Methods("POST")
-	api.HandleFunc("/designs/{id}", getDesignHandler(db)).Methods("GET")
+	// Design endpoints
+	api.HandleFunc("/designs", designHandler.CreateDesign).Methods("POST")
+	api.HandleFunc("/designs", designHandler.ListDesigns).Methods("GET")
+	api.HandleFunc("/designs/{id}", designHandler.GetDesign).Methods("GET")
+	api.HandleFunc("/designs/{id}/terraform", designHandler.RegenerateTerraform).Methods("POST")
+	api.HandleFunc("/designs/{id}/compare", designHandler.CompareProviders).Methods("POST")
 
 	// Serve static files (SvelteKit build)
 	fs := http.FileServer(http.Dir("../web/static"))
@@ -135,25 +147,9 @@ func getRateLimitHandler(rlmw *ratelimit.RateLimitMiddleware) http.HandlerFunc {
 	}
 }
 
-// Placeholder handlers
-func createDesignHandler(db *database.SupabaseClient) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Implement design creation
-		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "not_implemented",
-		})
-	}
-}
-
-func getDesignHandler(db *database.SupabaseClient) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Implement design retrieval
-		w.WriteHeader(http.StatusNotImplemented)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "not_implemented",
-		})
-	}
+// Helper: Generate UUID for designs
+func generateUUID() string {
+	return uuid.New().String()
 }
 
 // Helper: Get environment variable with default
