@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+:root {
+	--primary: #0066cc;
+	--primary-hover: #0052a3;
+	--secondary: #6b7280;
+	--success: #10b981;
+	--warning: #f59e0b;
+	--danger: #ef4444;
+}
+
+body {
+	@apply bg-gray-50 text-gray-900;
+}
+
+.btn-primary {
+	@apply bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+	@apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors;
+}
+
+.card {
+	@apply bg-white rounded-lg shadow-md p-6;
+}
+
+.input {
+	@apply w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent;
+}
+
+.select {
+	@apply w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-white;
+}
+
+.dropzone {
+	@apply border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-[var(--primary)] transition-colors cursor-pointer;
+}
+
+.dropzone-active {
+	@apply border-[var(--primary)] bg-blue-50;
+}
