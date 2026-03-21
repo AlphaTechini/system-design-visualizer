@@ -23,7 +23,7 @@ func (a *AWSPricingClient) EstimateArchitecture(ctx context.Context, region stri
 	
 	totalMonthly := computeMonthly + databaseMonthly + cacheMonthly + networkMonthly + storageMonthly
 	
-	hiddenCosts := []HiddenCost{}
+	var hiddenCosts []HiddenCost
 	if spec.CrossAZ {
 		hiddenCosts = append(hiddenCosts, HiddenCost{
 			Name: "Cross-AZ Data Transfer",

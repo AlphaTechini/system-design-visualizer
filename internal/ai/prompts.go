@@ -183,7 +183,7 @@ func formatRequirements(reqs map[string]interface{}) string {
 
 // ValidateArchitecture checks for anti-patterns
 func ValidateArchitecture(architecture string) []string {
-	warnings := []string{}
+	var warnings []string
 
 	// Check for common anti-patterns
 	antiPatterns := map[string]string{
