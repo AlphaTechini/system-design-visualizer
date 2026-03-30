@@ -24,6 +24,10 @@ const (
 )
 
 // NewMermaidRenderer creates renderer with Mermaid.ink
+// WARNING: Using Mermaid.ink involves sending diagram DSL to a third-party service.
+// For sensitive architectural data, this may pose a privacy risk as the DSL
+// traverses external infrastructure and may be logged in transit.
+// Consider using a local/self-hosted Puppeteer renderer for sensitive workloads.
 func NewMermaidRenderer() *MermaidRenderer {
 	return &MermaidRenderer{
 		baseURL: "https://mermaid.ink",
