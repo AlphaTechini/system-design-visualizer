@@ -13,7 +13,7 @@ The **System Design Visualizer** bridges the gap between conceptual requirements
 ### Core Capabilities
 
 
-- **AI-Guided Requirements Engineering**: Interactive Q&A to flush out scale, latency, and consistency needs.
+- **AI-Guided Requirements Engineering**: Interactive Q&A to flesh out scale, latency, and consistency needs.
 - **Visual Architecture Generation**: Real-time rendering of system diagrams using Mermaid.ink.
 - **Multi-Cloud Cost Estimation**: Detailed analysis of monthly spend across AWS, GCP, and Azure.
 - **Infrastructure as Code**: One-click generation of production-grade Terraform modules.
