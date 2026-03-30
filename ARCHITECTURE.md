@@ -625,19 +625,4 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
----
 
-## Next Steps
-
-1. ✅ Architecture complete
-2. ⏳ Initialize Go module + project structure
-3. ⏳ Implement database layer (PostgreSQL + Redis)
-4. ⏳ Implement rate limiting middleware
-5. ⏳ Implement NEAR AI Cloud provider
-6. ⏳ Implement diagram generation (Mermaid + Nano Banana Pro)
-7. ⏳ Implement cost estimation engine
-8. ⏳ Implement Terraform generator (hybrid approach)
-9. ⏳ Build SvelteKit frontend
-10. ⏳ Deploy to VPS
-
-**Ready to start coding!** 🚀
