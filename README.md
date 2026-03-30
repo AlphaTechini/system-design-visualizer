@@ -19,8 +19,6 @@ The **System Design Visualizer** bridges the gap between conceptual requirements
 
 ## 🏗️ Architectural Decisions & Tradeoffs
 
-As a senior-level project, every technical choice was made with specific tradeoffs in mind regarding scalability, maintainability, and developer velocity.
-
 ### 1. Go for Backend Services
 **Decision**: Standard library-heavy Go 1.21+ using `gorilla/mux`.
 - **Pros**:
