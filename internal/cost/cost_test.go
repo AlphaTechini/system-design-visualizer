@@ -2,6 +2,7 @@ package cost
 
 import (
 	"context"
+	"math"
 	"testing"
 )
 
@@ -27,8 +28,9 @@ func TestAWSEstimateArchitecture(t *testing.T) {
 
 	// Verify monthly costs (based on logic in aws.go)
 	// computeHourly := 0.192; 0.192 * 24 * 30 * 2 = 276.48
+	epsilon := 0.001
 	expectedCompute := 0.192 * 24 * 30 * 2
-	if cost.ComputeMonthly != expectedCompute {
+	if math.Abs(cost.ComputeMonthly-expectedCompute) > epsilon {
 		t.Errorf("Expected ComputeMonthly %f, got %f", expectedCompute, cost.ComputeMonthly)
 	}
 
@@ -41,7 +43,7 @@ func TestAWSEstimateArchitecture(t *testing.T) {
 		if hc.Name == "Cross-AZ Data Transfer" {
 			foundCrossAZ = true
 			expectedHC := 100 * 0.01
-			if hc.MonthlyCost != expectedHC {
+			if math.Abs(hc.MonthlyCost-expectedHC) > epsilon {
 				t.Errorf("Expected hidden cost %f, got %f", expectedHC, hc.MonthlyCost)
 			}
 		}

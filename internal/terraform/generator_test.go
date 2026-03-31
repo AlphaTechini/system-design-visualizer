@@ -46,9 +46,6 @@ func TestGenerate_AWS(t *testing.T) {
 			t.Errorf("main.tf does not contain expected project name reference")
 		}
 		if !strings.Contains(mainTF, "max_size         = 2") {
-			// Looking at the template in generator.go:
-			// max_size         = {{.InstanceCount}}
-			// desired_capacity = {{.InstanceCount}}
 			t.Errorf("main.tf does not contain correct instance count")
 		}
 	}

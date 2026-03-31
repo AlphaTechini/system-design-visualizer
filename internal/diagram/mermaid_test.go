@@ -19,10 +19,10 @@ func TestNewMermaidRenderer(t *testing.T) {
 }
 
 func TestRenderFunctions(t *testing.T) {
+	var capturedPath string
 	// Mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify URL format
-		// Expecting /png/base64code, /pdf/base64code, /svg/base64code
+		capturedPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("mock binary data"))
 	}))
@@ -34,12 +34,13 @@ func TestRenderFunctions(t *testing.T) {
 	code := "graph TD; A-->B;"
 
 	tests := []struct {
-		name   string
-		render func(string) ([]byte, error)
+		name           string
+		render         func(string) ([]byte, error)
+		expectedPrefix string
 	}{
-		{"RenderPNG", m.RenderPNG},
-		{"RenderPDF", m.RenderPDF},
-		{"RenderSVG", m.RenderSVG},
+		{"RenderPNG", m.RenderPNG, "/png/"},
+		{"RenderPDF", m.RenderPDF, "/pdf/"},
+		{"RenderSVG", m.RenderSVG, "/svg/"},
 	}
 
 	for _, tt := range tests {
@@ -50,6 +51,9 @@ func TestRenderFunctions(t *testing.T) {
 			}
 			if !bytes.Equal(data, []byte("mock binary data")) {
 				t.Errorf("%s returned unexpected data", tt.name)
+			}
+			if !strings.HasPrefix(capturedPath, tt.expectedPrefix) {
+				t.Errorf("%s: captured path %q does not have expected prefix %q", tt.name, capturedPath, tt.expectedPrefix)
 			}
 		})
 	}
@@ -96,7 +100,7 @@ func TestValidateMermaid(t *testing.T) {
 		{"sequenceDiagram; Alice->>Bob: Hello;", false},
 		{"classDiagram; Class01 <|-- Class02;", false},
 		{"stateDiagram; [*] --> State1;", false},
-		{"erDiagram; CUSTOMER ||--o{ ORDER : places;", true}, // Should fail as it has '{' in its DSL usually, but wait, looking at my mock check, it only has '{' and no '}'
+		{"erDiagram; CUSTOMER ||--o{ ORDER : places;", true},
 		{"gantt; title A Gantt Diagram;", false},
 		{"pie; title Pets adopted by volunteers; \"Dogs\" : 386;", false},
 		{"journey; title My working day;", false},

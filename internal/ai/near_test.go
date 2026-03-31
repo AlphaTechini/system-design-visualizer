@@ -29,6 +29,12 @@ func TestChat_Success(t *testing.T) {
 	// Mock server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST method, got %s", r.Method)
+		}
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("Expected path /chat/completions, got %s", r.URL.Path)
+		}
 		if r.Header.Get("Authorization") != "Bearer test-key" {
 			t.Errorf("Expected test-key, got %s", r.Header.Get("Authorization"))
 		}
@@ -61,8 +67,12 @@ func TestChat_Success(t *testing.T) {
 	n := NewNEARAIProvider("test-key", "test-model")
 	n.baseURL = ts.URL // Override for test
 
-	// Clear cache for clean test
+	// Isolate package-global cache
+	oldCache := memoryCache.data
 	memoryCache.data = make(map[string]cacheEntry)
+	t.Cleanup(func() {
+		memoryCache.data = oldCache
+	})
 
 	ans, err := n.Chat(context.Background(), "system", "user")
 	if err != nil {
@@ -91,6 +101,13 @@ func TestChat_Success(t *testing.T) {
 func TestChat_ErrorScenarios(t *testing.T) {
 	n := NewNEARAIProvider("test-key", "test-model")
 
+	// Isolate package-global cache
+	oldCache := memoryCache.data
+	memoryCache.data = make(map[string]cacheEntry)
+	t.Cleanup(func() {
+		memoryCache.data = oldCache
+	})
+
 	// 1. API error status
 	ts1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -106,6 +123,12 @@ func TestChat_ErrorScenarios(t *testing.T) {
 
 	// 2. Empty choices
 	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST method, got %s", r.Method)
+		}
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("Expected path /chat/completions, got %s", r.URL.Path)
+		}
 		resp := ChatCompletionResponse{
 			Choices: []struct {
 				Index        int     `json:"index"`
@@ -118,7 +141,6 @@ func TestChat_ErrorScenarios(t *testing.T) {
 	}))
 	defer ts2.Close()
 
-	memoryCache.data = make(map[string]cacheEntry) // reset cache
 	n.baseURL = ts2.URL
 	_, err = n.Chat(context.Background(), "s2", "u2")
 	if err == nil || err.Error() != "no choices in response" {
