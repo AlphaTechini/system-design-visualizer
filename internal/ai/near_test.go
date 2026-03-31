@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -187,14 +188,7 @@ func TestValidateArchitecture(t *testing.T) {
 	}
 
 	for _, exp := range expected {
-		found := false
-		for _, w := range warnings {
-			if w == exp {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(warnings, exp) {
 			t.Errorf("Expected warning %q not found", exp)
 		}
 	}

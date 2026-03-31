@@ -71,7 +71,7 @@ func TestRender_Error(t *testing.T) {
 
 	_, err := m.RenderPNG("invalid")
 	if err == nil {
-		t.Error("RenderPNG should fail on 400 status")
+		t.Fatal("RenderPNG should fail on 400 status")
 	}
 	if !strings.Contains(err.Error(), "render failed with status 400") {
 		t.Errorf("Expected status 400 error message, got: %v", err)

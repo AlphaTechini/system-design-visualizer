@@ -1,6 +1,7 @@
 package terraform
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -41,13 +42,17 @@ func TestGenerate_AWS(t *testing.T) {
 	}
 
 	// Verify some content
-	if mainTF, ok := files["main.tf"]; ok {
-		if !strings.Contains(mainTF, "Name = \"${var.project_name}-vpc\"") {
-			t.Errorf("main.tf does not contain expected project name reference")
-		}
-		if !strings.Contains(mainTF, "max_size         = 2") {
-			t.Errorf("main.tf does not contain correct instance count")
-		}
+	mainTF, ok := files["main.tf"]
+	if !ok {
+		t.Fatal("main.tf missing from output")
+	}
+	if !strings.Contains(mainTF, "Name = \"${var.project_name}-vpc\"") {
+		t.Errorf("main.tf does not contain expected project name reference")
+	}
+	// Use regex for whitespace-insensitive matching
+	matched, _ := regexp.MatchString(`max_size\s*=\s*2`, mainTF)
+	if !matched {
+		t.Errorf("main.tf does not contain correct instance count (max_size = 2)")
 	}
 }
 
@@ -69,7 +74,10 @@ func TestGenerate_AWS_WithCacheAndMonitoring(t *testing.T) {
 		t.Fatalf("Generate failed: %v", err)
 	}
 
-	mainTF := files["main.tf"]
+	mainTF, ok := files["main.tf"]
+	if !ok {
+		t.Fatal("main.tf missing from output")
+	}
 	if !strings.Contains(mainTF, "aws_elasticache_cluster") {
 		t.Error("main.tf should contain ElastiCache resource")
 	}
