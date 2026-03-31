@@ -60,7 +60,7 @@ func TestRenderFunctions(t *testing.T) {
 }
 
 func TestRender_Error(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid mermaid syntax"))
 	}))

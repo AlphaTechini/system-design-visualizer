@@ -86,7 +86,7 @@ func TestChat_Success(t *testing.T) {
 	// Test caching
 	// Second call should not hit mock server (if it did and we counted, but here we just check it returns the same)
 	// We can modify mock server to fail on second call to ensure cache hit.
-	ts.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts.Config.Handler = http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Error("Mock server should not have been called on cached request")
 	})
 
@@ -110,7 +110,7 @@ func TestChat_ErrorScenarios(t *testing.T) {
 	})
 
 	// 1. API error status
-	ts1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte("unauthorized"))
 	}))
